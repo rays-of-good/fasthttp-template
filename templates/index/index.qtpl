@@ -1,0 +1,22 @@
+{%code 
+type (
+	MainData struct {
+		Title string
+		Text  string	
+	}
+)
+%}
+
+{% func Code(data MainData) %}
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{%s data.Title %}</title>
+</head>
+<body>
+	{%s data.Text %}
+</body>
+</html>
+{% endfunc %}
