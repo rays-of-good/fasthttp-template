@@ -1,177 +1,114 @@
 package api
 
 import (
-	lmodels "github.com/rays-of-good/fasthttp-template/models"
+	"github.com/rays-of-good/fasthttp-template/models"
 
 	"github.com/goccy/go-json"
-	"github.com/jackc/pgx/v4"
 	"github.com/valyala/fasthttp"
-
-	aheaders "github.com/go-asphyxia/http/headers"
-	amime "github.com/go-asphyxia/mime"
 )
 
-func (a *API) GetUsers(ctx *fasthttp.RequestCtx) {
-	c, err := a.Database.Pool.Acquire(ctx)
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
+func (api *API) AddUser() (handler fasthttp.RequestHandler) {
+	handler = func(ctx *fasthttp.RequestCtx) {
+		user := models.User{}
 
-	defer c.Release()
-
-	rows, err := c.Query(ctx, "select id, created_at, updated_at, deleted_at, user_role from users order by created_at desc")
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	us := lmodels.Users{}
-	u := lmodels.User{}
-
-	for rows.Next() {
-		err = rows.Scan(&u.Database.ID, &u.Database.CreatedAt, &u.Database.UpdatedAt, &u.Database.DeletedAt, &u.Role)
+		err := json.NewDecoder(ctx.RequestBodyStream()).Decode(&user)
 		if err != nil {
-			continue
+			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			return
 		}
 
-		us = append(us, u)
-	}
-
-	b, err := json.Marshal(us)
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	headers := &ctx.Response.Header
-
-	headers.Set(aheaders.ContentType, amime.ApplicationJSON)
-
-	ctx.Write(b)
-}
-
-func (a *API) GetUser(ctx *fasthttp.RequestCtx) {
-	c, err := a.Database.Pool.Acquire(ctx)
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	defer c.Release()
-
-	u := lmodels.User{}
-
-	err = u.Database.ID.Set(ctx.UserValue("id").(string))
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
-		return
-	}
-
-	err = c.QueryRow(
-		ctx,
-		"select created_at, updated_at, deleted_at, user_role from users where id = $1",
-		u.Database.ID,
-	).Scan(
-		&u.Database.CreatedAt,
-		&u.Database.UpdatedAt,
-		&u.Database.DeletedAt,
-		&u.Role,
-	)
-
-	switch err {
-	case pgx.ErrNoRows:
-		ctx.Error(err.Error(), fasthttp.StatusNotFound)
-	case nil:
-		b, err := json.Marshal(&u)
+		err = api.Database.InsertUser(ctx, &user)
 		if err != nil {
 			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
 			return
 		}
 
-		headers := &ctx.Response.Header
-
-		headers.Set(aheaders.ContentType, amime.ApplicationJSON)
-
-		ctx.Write(b)
-	default:
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+		err = json.NewEncoder(ctx.Response.BodyWriter()).Encode(&user)
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
 	}
+
+	return
 }
 
-func (a *API) UpdateUser(ctx *fasthttp.RequestCtx) {
-	u := lmodels.User{}
+func (api *API) UpdateUser() (handler fasthttp.RequestHandler) {
+	handler = func(ctx *fasthttp.RequestCtx) {
+		user := models.User{}
 
-	err := json.Unmarshal(ctx.Request.Body(), &u)
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
+		err := json.NewDecoder(ctx.RequestBodyStream()).Decode(&user)
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+			return
+		}
 
-	c, err := a.Database.Pool.Acquire(ctx)
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	defer c.Release()
-
-	err = c.QueryRow(ctx, "update users set user_role = $1 where id = $2 returning user_role", u.Role, u.Database.ID).Scan(&u.Role)
-
-	switch err {
-	case pgx.ErrNoRows:
-		ctx.Error(err.Error(), fasthttp.StatusNotFound)
-	case nil:
-		b, err := json.Marshal(&u)
+		err = api.Database.UpdateUser(ctx, &user)
 		if err != nil {
 			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
 			return
 		}
 
-		headers := &ctx.Response.Header
-
-		headers.Set(aheaders.ContentType, amime.ApplicationJSON)
-
-		ctx.Write(b)
-	default:
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-	}
-}
-
-func (a *API) DeleteUser(ctx *fasthttp.RequestCtx) {
-	d := lmodels.Database{}
-
-	err := d.ID.Set(ctx.UserValue("id").(string))
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
-		return
-	}
-
-	c, err := a.Database.Pool.Acquire(ctx)
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
-		return
-	}
-
-	defer c.Release()
-
-	err = c.QueryRow(ctx, "update users set deleted_at = current_timestamp where id = $1 returning created_at, updated_at, deleted_at", d.ID).Scan(&d.CreatedAt, &d.UpdatedAt, &d.DeletedAt)
-
-	switch err {
-	case pgx.ErrNoRows:
-		ctx.Error(err.Error(), fasthttp.StatusNotFound)
-	case nil:
-		b, err := json.Marshal(&d)
+		err = json.NewEncoder(ctx.Response.BodyWriter()).Encode(&user)
 		if err != nil {
 			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
+	}
+
+	return
+}
+
+func (api *API) GetUsers() (handler fasthttp.RequestHandler) {
+	handler = func(ctx *fasthttp.RequestCtx) {
+		coaches, err := api.Database.SelectUsers(ctx)
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
 		}
 
-		headers := &ctx.Response.Header
-
-		headers.Set(aheaders.ContentType, amime.ApplicationJSON)
-
-		ctx.Write(b)
-	default:
-		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+		err = json.NewEncoder(ctx.Response.BodyWriter()).Encode(coaches)
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
 	}
+
+	return
+}
+
+func (api *API) GetUser() (handler fasthttp.RequestHandler) {
+	handler = func(ctx *fasthttp.RequestCtx) {
+		coach, err := api.Database.SelectUser(ctx, ctx.UserValue("id").(string))
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
+
+		err = json.NewEncoder(ctx.Response.BodyWriter()).Encode(&coach)
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
+	}
+
+	return
+}
+
+func (api *API) DeleteUser() (handler fasthttp.RequestHandler) {
+	handler = func(ctx *fasthttp.RequestCtx) {
+		system, err := api.Database.DeleteUser(ctx, ctx.UserValue("id").(string))
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
+
+		err = json.NewEncoder(ctx.Response.BodyWriter()).Encode(&system)
+		if err != nil {
+			ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+			return
+		}
+	}
+
+	return
 }

@@ -14,6 +14,9 @@ import (
 
 	"github.com/fasthttp/router"
 
+	aheaders "github.com/go-asphyxia/http/headers"
+	amethods "github.com/go-asphyxia/http/methods"
+	amiddlewares "github.com/go-asphyxia/middlewares"
 	atls "github.com/go-asphyxia/tls"
 )
 
@@ -33,7 +36,27 @@ func Main(configuration *Configuration) (err error) {
 	}
 	defer d.Close()
 
+	HSTS := amiddlewares.NewHSTS(31536000)
+	CORS := amiddlewares.NewCORS(
+		[]string{
+			configuration.Host,
+		},
+		[]string{
+			amethods.GET,
+			amethods.POST,
+			amethods.PUT,
+			amethods.DELETE,
+			amethods.OPTIONS,
+		},
+		[]string{
+			aheaders.ContentType,
+			aheaders.Accept,
+			aheaders.Authorization,
+		},
+	)
+
 	rr := irenderer.NewRenderer(d)
+
 	API := iapi.NewAPI(d)
 
 	r := router.New()
@@ -42,9 +65,10 @@ func Main(configuration *Configuration) (err error) {
 
 	api := r.Group("/api")
 
-	// users := api.Group("/users")
+	users := api.Group("/users")
+	users.GET("/", CORS.Middleware(API.GetUsers()))
 
-	api.OPTIONS("/{any:*}", API.CORS)
+	api.OPTIONS("/{any:*}", CORS.Handler())
 
 	t, err := atls.NewTLS(atls.Version12)
 	if err != nil {
@@ -68,7 +92,7 @@ func Main(configuration *Configuration) (err error) {
 
 	https = tls.NewListener(https, tlsConfiguration)
 
-	s := iserver.NewServer(r.Handler, configuration.Host)
+	s := iserver.NewServer(HSTS.Middleware(r.Handler), configuration.Host)
 	defer s.Close()
 
 	signals := make(chan os.Signal, 1)

@@ -7,7 +7,10 @@ create table users (
 	updated_at timestamp with time zone not null default current_timestamp,
 	deleted_at timestamp with time zone,
 
-	user_role user_role not null default 'user',
+	telegram_id varchar not null,
+	telegram_username varchar,
+
+	role user_role not null default 'user',
 
 	primary key (id)
 );

@@ -5,7 +5,7 @@ import (
 )
 
 type (
-	Database struct {
+	System struct {
 		ID pgtype.UUID
 
 		CreatedAt pgtype.Timestamptz

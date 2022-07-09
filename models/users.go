@@ -11,10 +11,11 @@ type (
 	}
 
 	User struct {
-		Database     Database
+		System System
+
 		TelegramUser TelegramUser
 
-		Role pgtype.EnumType
+		Role pgtype.Varchar
 	}
 
 	Users []User
