@@ -7,7 +7,7 @@ require (
 	github.com/go-asphyxia/http v0.0.3
 	github.com/go-asphyxia/middlewares v0.0.0-20220624163942-ef2613f41c02
 	github.com/go-asphyxia/tls v0.0.0-20220609105058-9a9c04d3fce1
-	github.com/goccy/go-json v0.9.8
+	github.com/goccy/go-json v0.9.10
 	github.com/jackc/pgtype v1.11.0
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/sakirsensoy/genv v1.0.1
